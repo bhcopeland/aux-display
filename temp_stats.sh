@@ -23,13 +23,28 @@ get_current_temp() {
             temp=$(sensors | grep 'Tctl:' | awk '{print $2}' | sed 's/[^0-9.]*//g')
             ;;
         "gpu_edge")
-            temp=$(sensors amdgpu-pci-0300 | awk '/edge:/ {print $2}' | sed 's/[^0-9.]*//g')
+            gpu_type=$(./gpu_detect.sh type)
+            if [[ "$gpu_type" == "amd" ]]; then
+                temp=$(sensors amdgpu-pci-0300 | awk '/edge:/ {print $2}' | sed 's/[^0-9.]*//g')
+            elif [[ "$gpu_type" == "nvidia" ]]; then
+                temp=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1)
+            fi
             ;;
         "gpu_junction")
-            temp=$(sensors amdgpu-pci-0300 | awk '/junction:/ {print $2}' | sed 's/[^0-9.]*//g')
+            gpu_type=$(./gpu_detect.sh type)
+            if [[ "$gpu_type" == "amd" ]]; then
+                temp=$(sensors amdgpu-pci-0300 | awk '/junction:/ {print $2}' | sed 's/[^0-9.]*//g')
+            elif [[ "$gpu_type" == "nvidia" ]]; then
+                temp=$(nvidia-smi --query-gpu=temperature.memory --format=csv,noheader,nounits 2>/dev/null | head -1)
+            fi
             ;;
         "gpu_mem")
-            temp=$(sensors amdgpu-pci-0300 | awk '/mem:/ {print $2}' | sed 's/[^0-9.]*//g')
+            gpu_type=$(./gpu_detect.sh type)
+            if [[ "$gpu_type" == "amd" ]]; then
+                temp=$(sensors amdgpu-pci-0300 | awk '/mem:/ {print $2}' | sed 's/[^0-9.]*//g')
+            elif [[ "$gpu_type" == "nvidia" ]]; then
+                temp=$(nvidia-smi --query-gpu=temperature.memory --format=csv,noheader,nounits 2>/dev/null | head -1)
+            fi
             ;;
     esac
     echo "$temp"
@@ -39,30 +54,29 @@ get_current_temp() {
 update_stats() {
     local current_temp=$(get_current_temp)
     local stats_file="$STATS_DIR/${SENSOR_TYPE}.stats"
-    
+
     # If no current temp or invalid, return
     if [[ -z "$current_temp" || "$current_temp" == "0" ]]; then
         return
     fi
-    
+
     # Validate temperature is a number
     if ! echo "$current_temp" | grep -E '^[0-9]+\.?[0-9]*$' >/dev/null; then
         return
     fi
-    
+
     # Initialize stats file if it doesn't exist
     if [[ ! -f "$stats_file" ]]; then
         echo "$current_temp $current_temp $current_temp 1" > "$stats_file"
         return
     fi
-    
+
     # Validate existing stats file has data
     if [[ ! -s "$stats_file" ]]; then
         echo "$current_temp $current_temp $current_temp 1" > "$stats_file"
         return
     fi
-    
-    # Read existing stats and update using a more robust approach
+
     local stats_content
     if stats_content=$(cat "$stats_file" 2>/dev/null); then
         local new_stats
@@ -72,7 +86,7 @@ update_stats() {
             max_temp = $2
             sum_temp = $3
             count = $4
-            
+
             # Validate existing data
             if (min_temp == "" || max_temp == "" || sum_temp == "" || count == "" || count <= 0) {
                 min_temp = current
@@ -83,16 +97,16 @@ update_stats() {
                 # Update min/max
                 if (current < min_temp) min_temp = current
                 if (current > max_temp) max_temp = current
-                
+
                 # Update sum and count
                 sum_temp = sum_temp + current
                 count = count + 1
             }
-            
+
             # Output updated stats
             print min_temp, max_temp, sum_temp, count
         }' 2>/dev/null)
-        
+
         # Only update file if we got valid output
         if [[ -n "$new_stats" ]]; then
             echo "$new_stats" > "$stats_file"
@@ -107,7 +121,7 @@ update_stats() {
 get_stat() {
     local stats_file="$STATS_DIR/${SENSOR_TYPE}.stats"
     local current_temp=$(get_current_temp)
-    
+
     case "$STAT_TYPE" in
         "current")
             if [[ -n "$current_temp" && "$current_temp" != "0" ]]; then
@@ -155,6 +169,5 @@ get_stat() {
     esac
 }
 
-# Update stats first, then return requested value
 update_stats
 get_stat
