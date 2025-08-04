@@ -6,7 +6,7 @@
 # operation: read, write
 # stat_type: current, min, max, avg
 
-STATS_DIR="/tmp/conky_io_stats"
+STATS_DIR="$HOME/.cache/conky_io_stats"
 DEVICE="$1"
 OPERATION="$2"
 STAT_TYPE="$3"
@@ -48,7 +48,7 @@ get_io_speed_alt() {
     
     # Get current diskio from same method conky uses
     local current_time=$(date +%s)
-    local stats_file="/tmp/io_${device}_${operation}_last"
+    local stats_file="$HOME/.cache/conky_io_stats/io_${device}_${operation}_last"
     
     # Read current stats
     local current_stats

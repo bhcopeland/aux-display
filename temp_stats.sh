@@ -2,10 +2,10 @@
 
 # Temperature statistics tracking script for conky
 # Usage: temp_stats.sh <sensor_type> <stat_type>
-# sensor_type: cpu_package, cpu_core0, cpu_core1, cpu_core2, cpu_core3, gpu_edge, gpu_junction, gpu_mem
+# sensor_type: cpu_package, cpu_core0, cpu_core1, cpu_core2, cpu_core3, gpu_edge, gpu_junction, gpu_mem, nvme_composite, nvme_sensor2
 # stat_type: current, min, max, avg
 
-STATS_DIR="/tmp/conky_temp_stats"
+STATS_DIR="$HOME/.cache/conky_temp_stats"
 SENSOR_TYPE="$1"
 STAT_TYPE="$2"
 
@@ -45,6 +45,12 @@ get_current_temp() {
             elif [[ "$gpu_type" == "nvidia" ]]; then
                 temp=$(nvidia-smi --query-gpu=temperature.memory --format=csv,noheader,nounits 2>/dev/null | head -1)
             fi
+            ;;
+        "nvme_composite")
+            temp=$(sensors nvme-pci-0a00 2>/dev/null | awk '/Composite:/ {print $2}' | sed 's/[^0-9.]*//g')
+            ;;
+        "nvme_sensor2")
+            temp=$(sensors nvme-pci-0a00 2>/dev/null | awk '/Sensor 2:/ {print $3}' | sed 's/[^0-9.]*//g')
             ;;
     esac
     echo "$temp"
