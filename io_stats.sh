@@ -78,7 +78,7 @@ get_io_speed_alt() {
                 local stats_diff=$((current_stats - last_stats))
                 # Convert sectors to KB/s (512 bytes per sector)
                 local speed=$(echo "scale=2; $stats_diff * 512 / 1024 / $time_diff" | bc -l 2>/dev/null || echo "0.00")
-                if [[ $(echo "$speed < 0" | bc -l 2>/dev/null || echo 0) -eq 1 ]]; then
+                if [[ "$speed" == *"-"* ]]; then
                     speed="0.00"
                 fi
                 echo "$speed"
@@ -172,13 +172,19 @@ format_speed() {
         return
     fi
     
-    # Convert to appropriate units
-    if (( $(echo "$speed >= 1048576" | bc -l 2>/dev/null || echo 0) )); then
-        echo "$(echo "scale=1; $speed / 1048576" | bc -l 2>/dev/null || echo "0")GB/s"
-    elif (( $(echo "$speed >= 1024" | bc -l 2>/dev/null || echo 0) )); then
-        echo "$(echo "scale=1; $speed / 1024" | bc -l 2>/dev/null || echo "0")MB/s"
+    # Convert to appropriate units - clean the speed value first
+    local clean_speed=$(echo "$speed" | tr -d '\n' | tr -d ' ')
+    local speed_int=$(echo "$clean_speed" | cut -d'.' -f1)
+    if [[ -z "$speed_int" || ! "$speed_int" =~ ^[0-9]+$ ]]; then
+        speed_int=0
+    fi
+    
+    if [[ $speed_int -ge 1048576 ]]; then
+        echo "$(echo "scale=1; $clean_speed / 1048576" | bc -l 2>/dev/null || echo "0")GB/s"
+    elif [[ $speed_int -ge 1024 ]]; then
+        echo "$(echo "scale=1; $clean_speed / 1024" | bc -l 2>/dev/null || echo "0")MB/s"
     else
-        echo "$(echo "scale=0; $speed" | bc -l 2>/dev/null || echo "0")KB/s"
+        echo "$(echo "scale=0; $clean_speed" | bc -l 2>/dev/null || echo "0")KB/s"
     fi
 }
 
@@ -197,10 +203,10 @@ get_stat() {
                 if [[ -n "$min_speed" ]]; then
                     format_speed "$min_speed"
                 else
-                    echo "N/A"
+                    printf "%8s" "N/A"
                 fi
             else
-                echo "N/A"
+                printf "%8s" "N/A"
             fi
             ;;
         "max")
@@ -209,10 +215,10 @@ get_stat() {
                 if [[ -n "$max_speed" ]]; then
                     format_speed "$max_speed"
                 else
-                    echo "N/A"
+                    printf "%8s" "N/A"
                 fi
             else
-                echo "N/A"
+                printf "%8s" "N/A"
             fi
             ;;
         "avg")
@@ -221,10 +227,10 @@ get_stat() {
                 if [[ -n "$avg_speed" && "$avg_speed" != "nan" && "$avg_speed" != "0" ]]; then
                     format_speed "$avg_speed"
                 else
-                    echo "N/A"
+                    printf "%8s" "N/A"
                 fi
             else
-                echo "N/A"
+                printf "%8s" "N/A"
             fi
             ;;
     esac

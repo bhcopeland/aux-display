@@ -23,6 +23,9 @@ get_current_game() {
 
 # Function to get FPS from MangoHUD log
 get_mangohud_fps() {
+    # Create MangoHUD temp directory if it doesn't exist
+    mkdir -p /tmp/mangohud 2>/dev/null
+    
     # Check for MangoHUD CSV files (newest first)
     local mangohud_csv=$(find /tmp/mangohud -name "*.csv" -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
     
@@ -61,7 +64,7 @@ get_gaming_fps() {
     
     if [[ "$gaming_processes" -gt 0 ]]; then
         # If gaming process detected, try to get GPU usage as FPS indicator
-        local gpu_util=$(/opt/rocm/bin/rocm-smi --showuse 2>/dev/null | grep 'GPU\[0\]' | awk -F': ' '{print $3}' | tr -d ' %' || echo "0")
+        local gpu_util=$(amd-smi metric --usage --gpu 0 2>/dev/null | grep 'GFX_ACTIVITY:' | awk '{print $2}' | tr -d ' %' || echo "0")
         
         if [[ "$gpu_util" -gt 80 ]]; then
             echo "120" # Very high GPU usage

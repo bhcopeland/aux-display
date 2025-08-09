@@ -23,7 +23,13 @@ get_gpu_temp() {
     local gpu_type=$(detect_gpu)
     case $gpu_type in
         "amd")
-            sensors amdgpu-pci-0300 2>/dev/null | awk '/edge:/ {print $2}' | head -1
+            # Auto-detect AMD GPU sensor
+            local amd_sensor=$(sensors | grep -o "amdgpu-pci-[a-f0-9]*" | head -1)
+            if [[ -n "$amd_sensor" ]]; then
+                sensors "$amd_sensor" 2>/dev/null | awk '/edge:/ {print $2}' | head -1
+            else
+                echo "N/A"
+            fi
             ;;
         "nvidia")
             nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | awk '{print $1"°C"}'
@@ -38,7 +44,13 @@ get_gpu_fan() {
     local gpu_type=$(detect_gpu)
     case $gpu_type in
         "amd")
-            sensors amdgpu-pci-0300 2>/dev/null | awk '/fan1:/ {print $2}' | sed 's/RPM//' | head -1
+            # Auto-detect AMD GPU sensor
+            local amd_sensor=$(sensors | grep -o "amdgpu-pci-[a-f0-9]*" | head -1)
+            if [[ -n "$amd_sensor" ]]; then
+                sensors "$amd_sensor" 2>/dev/null | awk '/fan1:/ {print $2}' | sed 's/RPM//' | head -1
+            else
+                echo "N/A"
+            fi
             ;;
         "nvidia")
             nvidia-smi --query-gpu=fan.speed --format=csv,noheader,nounits 2>/dev/null | head -1 | awk '{print $1}'
@@ -53,7 +65,13 @@ get_gpu_power() {
     local gpu_type=$(detect_gpu)
     case $gpu_type in
         "amd")
-            sensors amdgpu-pci-0300 2>/dev/null | awk '/PPT:/ {print $2}' | head -1
+            # Auto-detect AMD GPU sensor
+            local amd_sensor=$(sensors | grep -o "amdgpu-pci-[a-f0-9]*" | head -1)
+            if [[ -n "$amd_sensor" ]]; then
+                sensors "$amd_sensor" 2>/dev/null | awk '/PPT:/ {print $2}' | head -1
+            else
+                echo "N/A"
+            fi
             ;;
         "nvidia")
             nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null | head -1 | awk '{print $1"W"}'
@@ -68,8 +86,8 @@ get_gpu_usage() {
     local gpu_type=$(detect_gpu)
     case $gpu_type in
         "amd")
-            if command -v rocm-smi >/dev/null 2>&1; then
-                /opt/rocm/bin/rocm-smi --showuse 2>/dev/null | grep 'GPU\[0\]' | awk -F': ' '{print $3}' | tr -d ' %'
+            if command -v amd-smi >/dev/null 2>&1; then
+                amd-smi metric --usage --gpu 0 2>/dev/null | grep 'GFX_ACTIVITY:' | awk '{print $2}' | tr -d ' %'
             else
                 echo "0"
             fi
